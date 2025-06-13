@@ -1,0 +1,291 @@
+openapi: 3.0.3
+info:
+  title: Book Management API
+  version: 1.0.0
+  description: API for managing books and library operations
+  contact:
+    email: developer@example.com
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:5000
+    description: Local development server
+tags:
+  - name: books
+    description: Operations related to books
+  - name: library
+    description: Library operations like checkout and return
+paths:
+  /api/books:
+    get:
+      tags: [books]
+      summary: Get all books
+      description: Returns a paginated list of books, optionally filtered by search term
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            default: 10
+          description: Number of items per page
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search term to filter books
+      responses:
+        '200':
+          description: A list of books
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  books:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Book'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
+    
+    post:
+      tags: [books]
+      summary: Create a new book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Book'
+      responses:
+        '201':
+          description: Book created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '400':
+          description: Invalid input data
+        '409':
+          description: Book with this ISBN already exists
+
+  /api/books/{book_id}:
+    get:
+      tags: [books]
+      summary: Get a book by ID
+      parameters:
+        - in: path
+          name: book_id
+          required: true
+          schema:
+            type: integer
+          description: ID of the book to retrieve
+      responses:
+        '200':
+          description: Book found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '404':
+          description: Book not found
+    
+    put:
+      tags: [books]
+      summary: Update a book
+      parameters:
+        - in: path
+          name: book_id
+          required: true
+          schema:
+            type: integer
+          description: ID of the book to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Book'
+      responses:
+        '200':
+          description: Book updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '400':
+          description: Invalid input data
+        '404':
+          description: Book not found
+    
+    delete:
+      tags: [books]
+      summary: Delete a book
+      parameters:
+        - in: path
+          name: book_id
+          required: true
+          schema:
+            type: integer
+          description: ID of the book to delete
+      responses:
+        '204':
+          description: Book deleted successfully
+        '404':
+          description: Book not found
+
+  /api/library/checkout:
+    post:
+      tags: [library]
+      summary: Check out a book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [book_id, user_id]
+              properties:
+                book_id:
+                  type: integer
+                user_id:
+                  type: string
+      responses:
+        '201':
+          description: Book checked out successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkout'
+        '400':
+          description: Invalid input data
+        '404':
+          description: Book not found or already checked out
+
+  /api/library/return/{checkout_id}:
+    post:
+      tags: [library]
+      summary: Return a checked out book
+      parameters:
+        - in: path
+          name: checkout_id
+          required: true
+          schema:
+            type: integer
+          description: ID of the checkout record
+      responses:
+        '200':
+          description: Book returned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkout'
+        '400':
+          description: Book already returned
+        '404':
+          description: Checkout record not found
+
+  /api/library/user/{user_id}:
+    get:
+      tags: [library]
+      summary: Get user's checkouts
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: integer
+          description: ID of the user
+        - in: query
+          name: active
+          schema:
+            type: boolean
+            default: true
+          description: Filter by active checkouts
+      responses:
+        '200':
+          description: List of user's checkouts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Checkout'
+
+  /api/library/overdue:
+    get:
+      tags: [library]
+      summary: Get overdue books
+      responses:
+        '200':
+          description: List of overdue books
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Checkout'
+
+components:
+  schemas:
+    Book:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+        author:
+          type: string
+        isbn:
+          type: string
+        published_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [available, checked_out, lost]
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required: [title, author, isbn]
+
+    Checkout:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        book_id:
+          type: integer
+        user_id:
+          type: string
+        checkout_date:
+          type: string
+          format: date-time
+        due_date:
+          type: string
+          format: date-time
+        return_date:
+          type: string
+          format: date-time
+          nullable: true
+        book:
+          $ref: '#/components/schemas/Book'
+      required: [book_id, user_id]
